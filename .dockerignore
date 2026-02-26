@@ -1,0 +1,8 @@
+target/
+.git/
+.claude/
+models/
+*.md
+*.pdf
+.env
+.env.example
