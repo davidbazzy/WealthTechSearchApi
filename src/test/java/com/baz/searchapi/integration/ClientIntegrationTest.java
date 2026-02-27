@@ -1,5 +1,6 @@
 package com.baz.searchapi.integration;
 
+import com.baz.searchapi.config.TestMockMvcConfig;
 import com.baz.searchapi.config.TestcontainersConfig;
 import com.baz.searchapi.service.EmbeddingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=none")
 @AutoConfigureMockMvc
-@Import(TestcontainersConfig.class)
+@Import({TestcontainersConfig.class, TestMockMvcConfig.class})
 class ClientIntegrationTest {
 
     @Autowired

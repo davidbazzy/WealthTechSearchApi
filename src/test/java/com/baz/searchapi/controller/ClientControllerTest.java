@@ -1,6 +1,7 @@
 package com.baz.searchapi.controller;
 
 import tools.jackson.databind.json.JsonMapper;
+import com.baz.searchapi.config.TestMockMvcConfig;
 import com.baz.searchapi.model.dto.ClientRequest;
 import com.baz.searchapi.model.dto.ClientResponse;
 import com.baz.searchapi.service.ClientService;
@@ -8,6 +9,7 @@ import com.baz.searchapi.service.DocumentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -23,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ClientController.class)
+@Import(TestMockMvcConfig.class)
 class ClientControllerTest {
 
     @Autowired
