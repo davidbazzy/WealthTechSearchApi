@@ -189,7 +189,8 @@ curl "http://localhost:8080/search?q=portfolio"
     "first_name": "Bob",
     "last_name": "Johnson",
     "email": "bob.johnson@example.com",
-    "description": "Portfolio manager and investment specialist"
+    "description": "Portfolio manager and investment specialist",
+    "social_links": []
   },
   {
     "type": "document",
