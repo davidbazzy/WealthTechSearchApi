@@ -13,15 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -29,11 +20,6 @@ import java.util.Map;
 public class EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
-
-    private static final String HF_BASE =
-            "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main";
-    private static final String MODEL_URL = HF_BASE + "/onnx/model.onnx";
-    private static final String TOKENIZER_URL = HF_BASE + "/tokenizer.json";
 
     private final String modelDir;
 
@@ -48,13 +34,8 @@ public class EmbeddingService {
     @PostConstruct
     public void init() throws Exception {
         Path dir = Path.of(modelDir);
-        Files.createDirectories(dir);
-
         Path modelPath = dir.resolve("model.onnx");
         Path tokenizerPath = dir.resolve("tokenizer.json");
-
-        downloadIfMissing(modelPath, MODEL_URL, "ONNX model");
-        downloadIfMissing(tokenizerPath, TOKENIZER_URL, "tokenizer");
 
         env = OrtEnvironment.getEnvironment();
         session = env.createSession(modelPath.toString());
@@ -62,23 +43,6 @@ public class EmbeddingService {
 
         tokenizer = HuggingFaceTokenizer.newInstance(tokenizerPath);
         log.info("Tokenizer loaded from {}", tokenizerPath);
-    }
-
-    private void downloadIfMissing(Path path, String url, String label) throws IOException {
-        if (!Files.exists(path)) {
-            log.info("Downloading {} from HuggingFace...", label);
-            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-            try (HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()) {
-                HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-                try (InputStream in = response.body()) {
-                    Files.copy(in, path);
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Download interrupted: " + label, e);
-            }
-            log.info("{} downloaded to {}", label, path);
-        }
     }
 
     @PreDestroy
@@ -151,34 +115,5 @@ public class EmbeddingService {
             result[i] = v[i] / norm;
         }
         return result;
-    }
-
-    // --- Serialization utilities for storing float[] as byte[] in the DB ---
-
-    public static byte[] toBytes(float[] embedding) {
-        ByteBuffer buffer = ByteBuffer.allocate(embedding.length * 4).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.asFloatBuffer().put(embedding);
-        return buffer.array();
-    }
-
-    public static float[] toFloats(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-        float[] embedding = new float[bytes.length / 4];
-        buffer.asFloatBuffer().get(embedding);
-        return embedding;
-    }
-
-    /**
-     * Cosine similarity between two vectors. Returns value in [-1, 1].
-     */
-    public static double cosineSimilarity(float[] a, float[] b) {
-        double dot = 0, normA = 0, normB = 0;
-        for (int i = 0; i < a.length; i++) {
-            dot += (double) a[i] * b[i];
-            normA += (double) a[i] * a[i];
-            normB += (double) b[i] * b[i];
-        }
-        double denom = Math.sqrt(normA) * Math.sqrt(normB);
-        return denom == 0 ? 0 : dot / denom;
     }
 }

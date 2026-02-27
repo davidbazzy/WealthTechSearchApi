@@ -1,6 +1,8 @@
 package com.baz.searchapi.model.entity;
 
+import com.baz.searchapi.config.VectorConverter;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.util.UUID;
 
@@ -19,16 +21,17 @@ public class Chunk {
     @Column(nullable = false)
     private int chunkIndex;
 
-    @Column(nullable = false, columnDefinition = "CLOB")
+    @Column(nullable = false)
     private String text;
 
-    @Lob
-    @Column(nullable = false)
-    private byte[] embedding;
+    @Convert(converter = VectorConverter.class)
+    @ColumnTransformer(write = "?::vector")
+    @Column(columnDefinition = "vector(384)", nullable = false)
+    private float[] embedding;
 
     public Chunk() {}
 
-    public Chunk(UUID id, Document document, int chunkIndex, String text, byte[] embedding) {
+    public Chunk(UUID id, Document document, int chunkIndex, String text, float[] embedding) {
         this.id = id;
         this.document = document;
         this.chunkIndex = chunkIndex;
@@ -48,6 +51,6 @@ public class Chunk {
     public String getText() { return text; }
     public void setText(String text) { this.text = text; }
 
-    public byte[] getEmbedding() { return embedding; }
-    public void setEmbedding(byte[] embedding) { this.embedding = embedding; }
+    public float[] getEmbedding() { return embedding; }
+    public void setEmbedding(float[] embedding) { this.embedding = embedding; }
 }

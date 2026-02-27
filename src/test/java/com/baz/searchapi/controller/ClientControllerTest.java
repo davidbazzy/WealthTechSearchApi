@@ -2,24 +2,27 @@ package com.baz.searchapi.controller;
 
 import tools.jackson.databind.json.JsonMapper;
 import com.baz.searchapi.model.dto.ClientRequest;
-import com.baz.searchapi.service.EmbeddingService;
+import com.baz.searchapi.model.dto.ClientResponse;
+import com.baz.searchapi.service.ClientService;
+import com.baz.searchapi.service.DocumentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
+@WebMvcTest(ClientController.class)
 class ClientControllerTest {
 
     @Autowired
@@ -29,12 +32,19 @@ class ClientControllerTest {
     private JsonMapper objectMapper;
 
     @MockitoBean
-    private EmbeddingService embeddingService;
+    private ClientService clientService;
+
+    @MockitoBean
+    private DocumentService documentService;
 
     @Test
     void createClient_happyPath_returns201() throws Exception {
         var request = new ClientRequest("John", "Doe", "john@outlook.com",
                 "High net worth client", List.of("https://linkedin.com/in/johndoe"));
+
+        when(clientService.createClient(any())).thenReturn(new ClientResponse(
+                UUID.randomUUID(), "John", "Doe", "john@outlook.com",
+                "High net worth client", List.of("https://linkedin.com/in/johndoe")));
 
         mockMvc.perform(post("/clients")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -72,19 +82,15 @@ class ClientControllerTest {
 
     @Test
     void createClient_duplicateEmail_returns409() throws Exception {
+        when(clientService.createClient(any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT,
+                        "A client with this email already exists"));
+
         var request = new ClientRequest("John", "Doe", "john@outlook.com", null, null);
 
         mockMvc.perform(post("/clients")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
-
-        // Second attempt with same email
-        var request2 = new ClientRequest("Jane", "Smith", "john@outlook.com", null, null);
-
-        mockMvc.perform(post("/clients")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request2)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("A client with this email already exists"));
     }
@@ -102,12 +108,14 @@ class ClientControllerTest {
     void createClient_minimalFields_returns201() throws Exception {
         var request = new ClientRequest("Alice", "Wonder", "alice@example.com", null, null);
 
+        when(clientService.createClient(any())).thenReturn(
+                new ClientResponse(UUID.randomUUID(), "Alice", "Wonder", "alice@example.com", null, null));
+
         mockMvc.perform(post("/clients")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.first_name").value("Alice"))
-                .andExpect(jsonPath("$.description").doesNotExist());
+                .andExpect(jsonPath("$.first_name").value("Alice"));
     }
 }

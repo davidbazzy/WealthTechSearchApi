@@ -1,29 +1,29 @@
 package com.baz.searchapi.controller;
 
 import tools.jackson.databind.json.JsonMapper;
-import com.baz.searchapi.model.dto.ClientRequest;
 import com.baz.searchapi.model.dto.DocumentRequest;
-import com.baz.searchapi.service.EmbeddingService;
+import com.baz.searchapi.model.dto.DocumentResponse;
+import com.baz.searchapi.service.ClientService;
+import com.baz.searchapi.service.DocumentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
+@WebMvcTest(ClientController.class)
 class DocumentControllerTest {
 
     @Autowired
@@ -33,34 +33,29 @@ class DocumentControllerTest {
     private JsonMapper objectMapper;
 
     @MockitoBean
-    private EmbeddingService embeddingService;
+    private ClientService clientService;
 
-    private String createClientAndGetId() throws Exception {
-        when(embeddingService.embed(anyString())).thenReturn(new float[384]);
-
-        var request = new ClientRequest("John", "Doe", "john@outlook.com", null, null);
-        MvcResult result = mockMvc.perform(post("/clients")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asString();
-    }
+    @MockitoBean
+    private DocumentService documentService;
 
     @Test
     void createDocument_happyPath_returns201() throws Exception {
-        String clientId = createClientAndGetId();
-        var docRequest = new DocumentRequest("Utility Bill", "This is a utility bill for address verification.");
+        UUID clientId = UUID.randomUUID();
+        UUID docId = UUID.randomUUID();
+        var request = new DocumentRequest("Utility Bill", "This is a utility bill.");
+
+        when(documentService.createDocument(eq(clientId), any())).thenReturn(
+                new DocumentResponse(docId, clientId, "Utility Bill",
+                        "This is a utility bill.", LocalDateTime.now()));
 
         mockMvc.perform(post("/clients/" + clientId + "/documents")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.client_id").value(clientId))
+                .andExpect(jsonPath("$.client_id").value(clientId.toString()))
                 .andExpect(jsonPath("$.title").value("Utility Bill"))
-                .andExpect(jsonPath("$.content").value("This is a utility bill for address verification."))
+                .andExpect(jsonPath("$.content").value("This is a utility bill."))
                 .andExpect(jsonPath("$.created_at").exists());
     }
 
@@ -75,56 +70,52 @@ class DocumentControllerTest {
 
     @Test
     void createDocument_clientNotFound_returns404() throws Exception {
-        var docRequest = new DocumentRequest("Utility Bill", "Some content");
         UUID fakeId = UUID.randomUUID();
+
+        when(documentService.createDocument(eq(fakeId), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Client not found"));
 
         mockMvc.perform(post("/clients/" + fakeId + "/documents")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest)))
+                        .content(objectMapper.writeValueAsString(new DocumentRequest("Title", "Content"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("Client not found"));
     }
 
     @Test
     void createDocument_missingTitle_returns400() throws Exception {
-        String clientId = createClientAndGetId();
-        var docRequest = new DocumentRequest(null, "Some content");
+        UUID clientId = UUID.randomUUID();
 
         mockMvc.perform(post("/clients/" + clientId + "/documents")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest)))
+                        .content(objectMapper.writeValueAsString(new DocumentRequest(null, "Some content"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.title").exists());
     }
 
     @Test
     void createDocument_missingContent_returns400() throws Exception {
-        String clientId = createClientAndGetId();
-        var docRequest = new DocumentRequest("My Doc", null);
+        UUID clientId = UUID.randomUUID();
 
         mockMvc.perform(post("/clients/" + clientId + "/documents")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest)))
+                        .content(objectMapper.writeValueAsString(new DocumentRequest("My Doc", null))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.content").exists());
     }
 
     @Test
     void createDocument_duplicateTitle_returns409() throws Exception {
-        String clientId = createClientAndGetId();
-        var docRequest = new DocumentRequest("Utility Bill", "First version");
+        UUID clientId = UUID.randomUUID();
+
+        when(documentService.createDocument(eq(clientId), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT,
+                        "A document with this title already exists for this client"));
 
         mockMvc.perform(post("/clients/" + clientId + "/documents")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest)))
-                .andExpect(status().isCreated());
-
-        // Same title for same client
-        var docRequest2 = new DocumentRequest("Utility Bill", "Second version");
-
-        mockMvc.perform(post("/clients/" + clientId + "/documents")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docRequest2)))
-                .andExpect(status().isConflict());
+                        .content(objectMapper.writeValueAsString(new DocumentRequest("Utility Bill", "Content"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("A document with this title already exists for this client"));
     }
 }

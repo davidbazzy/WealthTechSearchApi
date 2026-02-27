@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ChunkingTest {
 
-    private final DocumentService documentService = new DocumentService(null, null, null);
+    private final DocumentService documentService = new DocumentService(null, null, null, null);
 
     @Test
     void shortDocument_singleChunk() {

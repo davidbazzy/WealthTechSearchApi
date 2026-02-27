@@ -24,7 +24,7 @@ public class Document {
     @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false, columnDefinition = "CLOB")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false)
