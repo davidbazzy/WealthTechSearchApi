@@ -36,13 +36,15 @@ CREATE TABLE documents (
         to_tsvector('english',
             coalesce(title,   '') || ' ' ||
             coalesce(content, ''))
-    ) STORED,
-
-    UNIQUE (client_id, title)
+    ) STORED
 );
 
 CREATE INDEX idx_documents_search ON documents USING GIN (search_vector);
 CREATE INDEX idx_documents_client ON documents (client_id);
+
+-- Case-insensitive uniqueness: (client_id, LOWER(title))
+CREATE UNIQUE INDEX documents_client_id_title_ci_key
+    ON documents (client_id, LOWER(title));
 
 -- -------------------------------------------------------------------------
 -- Chunks (semantic search units)

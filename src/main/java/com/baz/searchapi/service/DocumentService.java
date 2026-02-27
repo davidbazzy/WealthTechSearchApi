@@ -11,8 +11,10 @@ import com.baz.searchapi.repository.ClientRepository;
 import com.baz.searchapi.repository.DocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
@@ -48,22 +50,23 @@ public class DocumentService {
         this.chunkRepository = chunkRepository;
     }
 
+    @Transactional
     public DocumentResponse createDocument(UUID clientId, DocumentRequest request) {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Client not found"));
-
-        if (documentRepository.findByClientIdAndTitleIgnoreCase(clientId, request.title()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A document with this title already exists for this client");
-        }
 
         Document document = new Document();
         document.setClient(client);
         document.setTitle(request.title());
         document.setContent(request.content());
 
-        document = documentRepository.save(document);
+        try {
+            document = documentRepository.saveAndFlush(document);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A document with this title already exists for this client");
+        }
 
         // Chunk and embed the document content
         createChunks(document);

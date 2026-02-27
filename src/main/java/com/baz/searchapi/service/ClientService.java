@@ -5,8 +5,10 @@ import com.baz.searchapi.model.dto.ClientResponse;
 import com.baz.searchapi.model.dto.SearchResultItem;
 import com.baz.searchapi.model.entity.Client;
 import com.baz.searchapi.repository.ClientRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -20,20 +22,21 @@ public class ClientService {
         this.clientRepository = clientRepository;
     }
 
+    @Transactional
     public ClientResponse createClient(ClientRequest request) {
-        if (clientRepository.existsByEmailIgnoreCase(request.email())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A client with this email already exists");
-        }
-
         Client client = new Client();
         client.setFirstName(request.firstName());
         client.setLastName(request.lastName());
-        client.setEmail(request.email());
+        client.setEmail(request.email().toLowerCase());
         client.setDescription(request.description());
         client.setSocialLinks(request.socialLinks());
 
-        client = clientRepository.save(client);
+        try {
+            client = clientRepository.saveAndFlush(client);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A client with this email already exists");
+        }
         return toResponse(client);
     }
 

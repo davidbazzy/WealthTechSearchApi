@@ -48,6 +48,7 @@ public class EmbeddingService {
     @PreDestroy
     public void destroy() throws OrtException {
         if (session != null) session.close();
+        if (env != null) env.close();
     }
 
     /**

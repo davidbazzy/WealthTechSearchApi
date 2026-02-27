@@ -10,8 +10,6 @@ import java.util.UUID;
 
 public interface ClientRepository extends JpaRepository<Client, UUID> {
 
-    boolean existsByEmailIgnoreCase(String email);
-
     /**
      * Case-insensitive substring search across all client text fields.
      * Matches anywhere in first_name, last_name, email, or description —
