@@ -1,4 +1,4 @@
-# WealthTech Search API
+# Search API
 
 A search API for a WealthTech platform that allows advisors to search across clients and their documents.
 
