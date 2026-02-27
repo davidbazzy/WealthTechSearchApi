@@ -1,6 +1,6 @@
 # Search API
 
-A search API for a WealthTech platform that allows advisors to search across clients and their documents.
+A search API that allows search across clients and their documents.
 
 Client search uses case-insensitive substring matching on name, email, and description. Document search uses a hybrid approach: semantic similarity via sentence embeddings (all-MiniLM-L6-v2) combined with PostgreSQL full-text keyword matching.
 
