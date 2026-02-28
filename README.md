@@ -71,6 +71,16 @@ mvn test
 |---|---|
 | http://localhost:8080/swagger-ui.html | Swagger UI — interactive API docs |
 
+## Authentication
+
+All endpoints require an API key passed in the `X-Api-Key` request header.
+
+```
+X-Api-Key: YOUR_API_KEY
+```
+
+Requests without a valid key return `401 Unauthorized`.
+
 ## API Endpoints
 
 ### POST /clients
@@ -79,6 +89,7 @@ Create a new client.
 
 ```bash
 curl -X POST http://localhost:8080/clients \
+  -H "X-Api-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "first_name": "Jane",
@@ -138,7 +149,7 @@ Search across clients and documents. Returns a flat array of results ordered by 
 ### Find a client by partial email domain
 
 ```bash
-curl "http://localhost:8080/search?q=outlook"
+curl -H "X-Api-Key: YOUR_API_KEY" "http://localhost:8080/search?q=outlook"
 ```
 
 ```json
@@ -158,7 +169,7 @@ curl "http://localhost:8080/search?q=outlook"
 ### Semantic search — "address proof" finds utility bill
 
 ```bash
-curl "http://localhost:8080/search?q=address%20proof"
+curl -H "X-Api-Key: YOUR_API_KEY" "http://localhost:8080/search?q=address%20proof"
 ```
 
 ```json
@@ -207,7 +218,7 @@ curl "http://localhost:8080/search?q=portfolio"
 ### No results
 
 ```bash
-curl "http://localhost:8080/search?q=xyznonexistent"
+curl -H "X-Api-Key: YOUR_API_KEY" "http://localhost:8080/search?q=xyznonexistent"
 ```
 
 ```json
@@ -219,6 +230,7 @@ curl "http://localhost:8080/search?q=xyznonexistent"
 | Code | Scenario |
 |---|---|
 | 400 | Missing or blank required fields, malformed JSON, invalid UUID, missing query parameter |
+| 401 | Missing or invalid API key |
 | 404 | Client not found |
 | 409 | Duplicate email or duplicate document title for the same client |
 
